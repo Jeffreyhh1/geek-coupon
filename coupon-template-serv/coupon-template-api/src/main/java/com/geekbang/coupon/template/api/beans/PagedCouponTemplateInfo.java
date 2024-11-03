@@ -14,5 +14,5 @@ import java.util.List;
 public class PagedCouponTemplateInfo {
     private List<CouponTemplateInfo> templateInfoList;
     private int page;
-    private int total;
+    private long total;
 }
