@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>coupon-template-dao</artifactId>
+            <artifactId>coupon-template-dao1</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -48,6 +48,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
         </dependency>
     </dependencies>
 
