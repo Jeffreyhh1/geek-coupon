@@ -18,6 +18,7 @@
         <module>coupon-calculation_serv</module>
         <module>coupon-custom-serv</module>
         <module>middleware</module>
+        <module>coupon-calculation_serv/coupon-calculation-impl</module>
     </modules>
 
     <description>Demo project for Spring Boot</description>
