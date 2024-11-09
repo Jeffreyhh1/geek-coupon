@@ -10,8 +10,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.geekbang</groupId>
-    <artifactId>coupon-custom-serv</artifactId>
+    <artifactId>coupon-customer-serv</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
