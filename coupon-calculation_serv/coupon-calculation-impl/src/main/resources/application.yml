@@ -1,0 +1,18 @@
+server:
+  port: 20002
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: coupon-calculation-serv
+
+logging:
+  level:
+    com.broadview.coupon: debug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
