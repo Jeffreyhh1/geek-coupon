@@ -10,7 +10,7 @@ spring:
     nacos:
       discovery:
         server-addr: localhost:8848
-        service: coupon-template-serv
+        service: coupon-calculation-serv
         heart-beat-interval: 5000
         heart-beat-timeout: 15000
         metadata:
