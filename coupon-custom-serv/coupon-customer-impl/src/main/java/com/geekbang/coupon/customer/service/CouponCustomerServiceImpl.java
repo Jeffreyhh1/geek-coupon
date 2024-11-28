@@ -3,7 +3,6 @@ package com.geekbang.coupon.customer.service;
 import com.geekbang.coupon.calculation.api.beans.ShoppingCart;
 import com.geekbang.coupon.calculation.api.beans.SimulationOrder;
 import com.geekbang.coupon.calculation.api.beans.SimulationResponse;
-import com.geekbang.coupon.calculation.controller.service.CouponCalculationService;
 import com.geekbang.coupon.customer.api.beans.RequestCoupon;
 import com.geekbang.coupon.customer.api.beans.SearchCoupon;
 import com.geekbang.coupon.customer.api.enums.CouponStatus;
@@ -11,14 +10,15 @@ import com.geekbang.coupon.customer.dao.CouponDao;
 import com.geekbang.coupon.customer.dao.entity.Coupon;
 import com.geekbang.coupon.template.api.beans.CouponInfo;
 import com.geekbang.coupon.template.api.beans.CouponTemplateInfo;
-import com.geekbang.coupon.template.service.intf.CouponTemplateService;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.transaction.Transactional;
 import java.util.Calendar;
@@ -33,9 +33,7 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
     @Autowired
     private CouponDao couponDao;
     @Autowired
-    private CouponTemplateService templateService;
-    @Autowired
-    private CouponCalculationService calculationService;
+    private WebClient.Builder webClientBuilder;
 
     @Override
     public SimulationResponse simulateOrderPrice(SimulationOrder order) {
@@ -46,12 +44,18 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
             if (couponOptional.isPresent()) {
                 Coupon coupon = couponOptional.get();
                 CouponInfo couponInfo = CouponConverter.convertToCouponInfo(coupon);
-                couponInfo.setTemplateInfo(templateService.loadTemplateInfo(coupon.getTemplateId()));
+                couponInfo.setTemplateInfo(loadTemplateInfo(coupon.getTemplateId()));
                 couponInfoList.add(couponInfo);
             }
         }
         order.setCouponInfoList(couponInfoList);
-        return calculationService.simulateOrder(order);
+//        return calculationService.simulateOrder(order);
+        return webClientBuilder.build().post()
+                .uri("http://coupon-calculation-serv/calculator/simulate")
+                .bodyValue(order)
+                .retrieve()
+                .bodyToMono(SimulationResponse.class)
+                .block();
     }
 
     @Override
@@ -64,7 +68,11 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
             return Lists.newArrayList();
         }
         List<Long> templateIds = couponList.stream().map(Coupon::getTemplateId).collect(Collectors.toList());
-        Map<Long, CouponTemplateInfo> templateInfoMap = templateService.getTemplateInfoMap(templateIds);
+//        Map<Long, CouponTemplateInfo> templateInfoMap = templateService.getTemplateInfoMap(templateIds);
+        Map<Long, CouponTemplateInfo> templateInfoMap = webClientBuilder.build().get()
+                        .uri("http://coupon-template-serv/template/getBatch?ids=" + templateIds)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<Long, CouponTemplateInfo>>() {}).block();
         couponList.forEach(e -> e.setTemplateInfo(templateInfoMap.get(e.getTemplateId())));
         return couponList.stream().map(CouponConverter::convertToCouponInfo).collect(Collectors.toList());
 
@@ -72,7 +80,12 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
 
     @Override
     public Coupon requestCoupon(RequestCoupon request) {
-        CouponTemplateInfo templateInfo = templateService.loadTemplateInfo(request.getCouponTemplateId());
+//        CouponTemplateInfo templateInfo = templateService.loadTemplateInfo(request.getCouponTemplateId());
+        CouponTemplateInfo templateInfo = webClientBuilder.build().get()
+                .uri("http://coupon-template-serv/template/getTemplate?id=" + request.getCouponTemplateId())
+                .retrieve()
+                .bodyToMono(CouponTemplateInfo.class)
+                .block();
         if (templateInfo == null) {
             log.error("invalid template id={}", request.getCouponTemplateId());
             throw new IllegalArgumentException("Invalid template id");
@@ -114,11 +127,17 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
                     .build();
             coupon = couponDao.findAll(Example.of(example)).stream().findFirst().orElseThrow(() -> new RuntimeException("Coupon not found"));
             CouponInfo couponInfo = CouponConverter.convertToCouponInfo(coupon);
-            couponInfo.setTemplateInfo(templateService.loadTemplateInfo(coupon.getTemplateId()));
+            couponInfo.setTemplateInfo(loadTemplateInfo(coupon.getTemplateId()));
             order.setCouponInfoList(Lists.newArrayList(couponInfo));
         }
 
-        ShoppingCart checkoutInfo = calculationService.calculateOrderPrice(order);
+//        ShoppingCart checkoutInfo = calculationService.calculateOrderPrice(order);
+        ShoppingCart checkoutInfo = webClientBuilder.build().post()
+                .uri("http://coupon-calculation-serv/calculator/checkout")
+                .bodyValue(order)
+                .retrieve()
+                .bodyToMono(ShoppingCart.class)
+                .block();
         if (coupon != null) {
             if (CollectionUtils.isEmpty(checkoutInfo.getCouponInfoList())) {
                 log.error("cannot apply coupon to order, couponId={}", coupon.getId());
@@ -141,5 +160,13 @@ public class CouponCustomerServiceImpl implements CouponCustomerService {
         Coupon coupon = couponDao.findAll(Example.of(example)).stream().findFirst().orElseThrow(() -> new RuntimeException("Could not find available coupon"));
         coupon.setStatus(CouponStatus.INACTIVE);
         couponDao.save(coupon);
+    }
+
+    private CouponTemplateInfo loadTemplateInfo(Long templateId) {
+        return webClientBuilder.build().get()
+                .uri("http://coupon-template-serv/template/getTemplate?id=" + templateId)
+                .retrieve()
+                .bodyToMono(CouponTemplateInfo.class)
+                .block();
     }
 }
