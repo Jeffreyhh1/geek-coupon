@@ -15,4 +15,6 @@ public class RequestCoupon {
     private Long userId;
     @NotNull
     private Long couponTemplateId;
+
+    private String trafficVersion;
 }
